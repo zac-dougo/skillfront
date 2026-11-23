@@ -4,7 +4,6 @@ import xarray as xr
 from skillfront.data import LEAD_HOURS, PROTOCOL, VARIABLES, initialization_times
 from skillfront.grid import latitude_weights
 
-
 FORECAST_DIMS = ("init_time", "lead_time", "latitude", "longitude")
 
 

@@ -54,10 +54,13 @@ uv run --locked --python 3.12 skillfront benchmark \
 
 For a coarse model, add the same grid options you used to produce its forecast.
 
-## Run the tests
+## Run the tests and checks
 
 ```sh
-uv run --locked --python 3.12 python -m unittest discover -s tests -v
+uv run --locked --no-dev --python 3.12 python -m unittest discover -s tests -v
+uv run --locked --python 3.12 ruff check .
+uv run --locked --python 3.12 ruff format --check .
+uv run --locked --python 3.12 mypy src tests
 ```
 
 ## Data sources
