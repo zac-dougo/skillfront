@@ -2,15 +2,19 @@ import numpy as np
 import xarray as xr
 
 from skillfront.data import LEAD_HOURS, PROTOCOL, VARIABLES, initialization_times
+from skillfront.grid import latitude_weights
 
 
-FORECAST_DIMS = ("init_time", "lead_time", "cell")
+FORECAST_DIMS = ("init_time", "lead_time", "latitude", "longitude")
 
 
 def benchmark_cases(data: xr.Dataset) -> tuple[xr.Dataset, dict[str, xr.Dataset]]:
     """Align truth and baseline forecasts to the fixed v0 initialization times."""
     if data.attrs.get("protocol") != PROTOCOL:
         raise ValueError(f"Expected a prepared {PROTOCOL} dataset")
+    grid_degrees = data.attrs.get("grid_degrees")
+    if grid_degrees is None or not np.isfinite(grid_degrees) or grid_degrees <= 0:
+        raise ValueError("Prepared dataset must specify a positive finite grid_degrees attribute")
 
     init = xr.DataArray(initialization_times(), dims="init_time")
     lead = np.timedelta64(LEAD_HOURS, "h")
@@ -28,14 +32,15 @@ def benchmark_cases(data: xr.Dataset) -> tuple[xr.Dataset, dict[str, xr.Dataset]
             .expand_dims(lead_time=[lead])
             .transpose(*FORECAST_DIMS)
             .assign_coords(valid_time=(("init_time", "lead_time"), valid.values[:, None]))
+            .assign_attrs(grid_degrees=float(grid_degrees))
         )
 
     return align(verification), {"persistence": align(persistence), "climatology": align(climate)}
 
 
 def score_forecast(forecast: xr.Dataset, verification: xr.Dataset) -> dict:
-    """Score a complete deterministic forecast against the same dates and cells as the baselines."""
-    coordinates = [*FORECAST_DIMS, "latitude", "longitude"]
+    """Score a complete deterministic forecast against the same dates and grid as the baselines."""
+    coordinates = [*FORECAST_DIMS]
     if "valid_time" in forecast.coords:
         coordinates.append("valid_time")
     for name in coordinates:
@@ -44,7 +49,11 @@ def score_forecast(forecast: xr.Dataset, verification: xr.Dataset) -> dict:
         if actual is None or actual.dims != expected.dims or not np.array_equal(actual, expected):
             raise ValueError(f"Forecast coordinate {name!r} must match the benchmark")
 
-    weights = np.cos(np.deg2rad(verification.latitude))
+    grid_degrees = verification.attrs.get("grid_degrees")
+    if grid_degrees is None:
+        raise ValueError("Verification dataset must specify a grid_degrees attribute")
+    weights = latitude_weights(verification.latitude, float(grid_degrees))
+
     scores = {}
     for name, (_, unit, _, _) in VARIABLES.items():
         if name not in forecast.data_vars:

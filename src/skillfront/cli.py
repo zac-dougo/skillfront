@@ -36,7 +36,7 @@ def _read_snapshot(path: Path) -> tuple[xr.Dataset, str]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="skillfront")
     commands = parser.add_subparsers(dest="command", required=True)
-    benchmark = commands.add_parser("benchmark", help="Run the Australia v0 benchmark")
+    benchmark = commands.add_parser("benchmark", help="Run the Global v0 benchmark")
     benchmark.add_argument("--data", type=Path, default=Path(f"data/{PROTOCOL}-native.nc"))
     benchmark.add_argument("--scorecard", type=Path)
     benchmark.add_argument("--grid-degrees", type=float, default=NATIVE_GRID_DEGREES,
@@ -73,10 +73,10 @@ def run_benchmark(
         raise ValueError("Data, scorecard, and forecast snapshot paths must be different")
 
     if not data_path.exists():
-        print("Downloading the Australia v0 ERA5 and climatology slices…", flush=True)
+        print("Downloading the Global v0 ERA5 and climatology slices (~1 GB)…", flush=True)
         data = download_data()
         with _atomic_output(data_path) as temporary:
-            data.to_netcdf(temporary, engine="scipy")
+            data.to_netcdf(temporary, engine="scipy", format="NETCDF3_64BIT")
 
     data, data_hash = _read_snapshot(data_path)
     verification, baselines = benchmark_cases(prepare_benchmark_grid(data, grid_degrees, grid_origin))
@@ -91,15 +91,19 @@ def run_benchmark(
     report = {
         "protocol": PROTOCOL,
         "skillfront_version": version("skillfront"),
-        "region": "Australia land grid-cell centres",
+        "region": "Global",
         "grid_degrees": grid_degrees,
         "grid_origin": {"latitude": grid_origin[0], "longitude": grid_origin[1]},
         "init_times_utc": verification.indexes["init_time"].strftime("%Y-%m-%dT%H:%M:%SZ").tolist(),
         "lead_hours": LEAD_HOURS,
         "initializations": verification.sizes["init_time"],
-        "grid_cells": verification.sizes["cell"],
+        "grid_shape": {
+            "latitude": verification.sizes["latitude"],
+            "longitude": verification.sizes["longitude"],
+        },
+        "grid_cells": verification.sizes["latitude"] * verification.sizes["longitude"],
         "data": {"sha256": data_hash, "sources": {
-            name: data.attrs[name] for name in ("era5", "climatology", "boundary", "boundary_sha256")
+            name: data.attrs[name] for name in ("era5", "climatology")
         }},
         "models": models,
     }

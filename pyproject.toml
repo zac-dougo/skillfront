@@ -4,11 +4,9 @@ version = "0.1.0"
 description = "Data and benchmarks for weather prediction models"
 requires-python = ">=3.12"
 dependencies = [
-    "dask[array]>=2025.4",
     "fsspec[http]>=2025.3",
     "numpy>=2.0",
     "scipy>=1.15",
-    "shapely>=2.1",
     "xarray>=2025.6",
     "zarr>=3.1,<4",
 ]

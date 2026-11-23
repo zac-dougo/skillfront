@@ -1,6 +1,6 @@
-# Model design brief for Skillfront Australia v0
+# Model design brief for Skillfront Global v0
 
-Build a model that produces deterministic 24-hour weather forecasts over Australia. Use Skillfront to measure whether your forecasts improve on persistence and climatology. Aim for lower MAE and RMSE on the variables your design targets, and report where either baseline still wins. Skillfront handles verification and scoring. Your model owns training and inference.
+Build a model that produces deterministic 24-hour global weather forecasts. Use Skillfront to measure whether your forecasts improve on persistence and climatology. Aim for lower MAE and RMSE on the variables your design targets, and report where either baseline still wins. Skillfront handles verification and scoring. Your model owns training and inference.
 
 ```text
 Your model ─────────────→ forecast file ────────┐
@@ -16,13 +16,13 @@ ERA5 snapshot → scoring grid → truth/baselines ─┘
 
 ## Choose your grid
 
-The default is **0.25° latitude × 0.25° longitude**. You can design for a larger regular grid. Pass its spacing with `--grid-degrees` and, if its centres are offset, its anchor with `--grid-origin LAT LON`. Skillfront uses cells whose centres fall on Australian land and area-averages ERA5 and the baselines over each coarse cell's full footprint, including water inside coastal cells.
+The default is **0.25° latitude × 0.25° longitude** (`721 × 1440` globally). You can design for a coarser regular global grid whose spacing evenly divides `360°`. Pass its spacing with `--grid-degrees` and, if its centres are offset, its anchor with `--grid-origin LAT LON` (the latitude cells must cover `[-90, 90]`, e.g. pole-centred or half-step offset). Skillfront conservatively area-averages ERA5 and the baselines over each cell's full spherical footprint, wrapping longitude across `0° / 360°` and clamping polar caps at `±90°`.
 
 Write predictions on the selected benchmark grid. Use the same size, origin, and cases when comparing model scores.
 
 ## Deliver a forecast Skillfront can read
 
-Export a deterministic **NetCDF3** file containing all four fields. Each field must have dimensions `init_time`, `lead_time`, and `cell`. Copy the benchmark template's coordinate values and order, including `latitude` and `longitude` along `cell`. The `lead_time` coordinate must decode to a 24-hour timedelta. If you include `valid_time`, it must equal `init_time + lead_time`. Supply finite numeric values for all cases and cells.
+Export a deterministic **NetCDF3** file containing all four fields. Each field must have dimensions `init_time`, `lead_time`, `latitude`, and `longitude`. Copy the benchmark template's coordinate values and order. The `lead_time` coordinate must decode to a 24-hour timedelta. If you include `valid_time`, it must equal `init_time + lead_time`. Supply finite numeric values for all cases and grid cells.
 
 | Variable name | Exact `units` attribute | Target |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ Export a deterministic **NetCDF3** file containing all four fields. Each field m
 | `mean_sea_level_pressure` | `hPa` | Mean sea-level pressure at valid time |
 | `precipitation_24h` | `mm` | Rainfall accumulated over the 24 hours ending at valid time |
 
-From the Skillfront checkout, run `uv run --locked --python 3.12 skillfront benchmark` to populate `data/australia-v0-native.nc` and produce the default baseline scorecard. Use the template coordinates to assemble your export. This example uses the native grid. For a coarse export, pass the same `step` and `origin` to `prepare_benchmark_grid` that you'll use when scoring.
+From the Skillfront checkout, run `uv run --locked --python 3.12 skillfront benchmark` to populate `data/global-v0-native.nc` and produce the default baseline scorecard. Use the template coordinates to assemble your export. This example uses the native grid. For a coarse export, pass the same `step` and `origin` to `prepare_benchmark_grid` that you'll use when scoring.
 
 ```python
 import xarray as xr
@@ -39,13 +39,13 @@ import xarray as xr
 from skillfront.benchmark import benchmark_cases
 from skillfront.data import prepare_benchmark_grid
 
-native = xr.load_dataset("data/australia-v0-native.nc", engine="scipy")
+native = xr.load_dataset("data/global-v0-native.nc", engine="scipy")
 _, baselines = benchmark_cases(prepare_benchmark_grid(native))
 template = baselines["persistence"]
 forecast = xr.Dataset(coords=template.coords)
 ```
 
-Populate `forecast` with your model's predictions and the units above, then write it with `forecast.to_netcdf("my-model.nc", engine="scipy")`.
+Populate `forecast` with your model's predictions and the units above, then write it with `forecast.to_netcdf("my-model.nc", engine="scipy", format="NETCDF3_64BIT")`.
 
 ## Run and hand back the results
 
@@ -54,7 +54,7 @@ uv run --locked --python 3.12 skillfront benchmark \
   --forecast my-model.nc --scorecard runs/my-model.json
 ```
 
-Add the matching grid options to this command for a coarse forecast. The scorecard reports area-weighted MAE, RMSE, and signed bias for each variable and model. Bias is forecast minus ERA5.
+Add the matching grid options to this command for a coarse forecast. The scorecard reports spherical-area-weighted MAE, RMSE, and signed bias for each variable and model. Bias is forecast minus ERA5.
 
 Hand back the forecast file, the scorecard, and the command you used to reproduce the run. Include the model version, training data and cutoff, inference inputs, and a short per-variable comparison with both baselines. Report any missing coverage or forecast errors in the handoff.
 
