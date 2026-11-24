@@ -1,7 +1,6 @@
 import numpy as np
 import xarray as xr
 
-
 NATIVE_GRID_DEGREES = 0.25
 DEFAULT_GRID_ORIGIN = (0.0, 0.0)
 _NATIVE_LATITUDES = np.arange(-90.0, 90.0 + NATIVE_GRID_DEGREES / 2, NATIVE_GRID_DEGREES)
@@ -56,11 +55,7 @@ def global_grid(step: float, origin: tuple[float, float] = DEFAULT_GRID_ORIGIN) 
     stop = int(np.floor((90.0 - lat_offset + 1e-11) / step)) + 1
     latitude = np.round(lat_offset + step * np.arange(first, stop, dtype=np.float64), 10)
     latitude = np.where(latitude == 0, 0.0, latitude)
-    if (
-        latitude.size == 0
-        or latitude[0] - step / 2 > -90.0 + 1e-9
-        or latitude[-1] + step / 2 < 90.0 - 1e-9
-    ):
+    if latitude.size == 0 or latitude[0] - step / 2 > -90.0 + 1e-9 or latitude[-1] + step / 2 < 90.0 - 1e-9:
         raise ValueError(
             "The latitude grid must cover [-90, 90]; use a pole-centred or half-step latitude origin"
         )

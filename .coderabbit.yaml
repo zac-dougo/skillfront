@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+enable_free_tier: true
+
+reviews:
+  profile: "chill"
+  high_level_summary: true
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: false
+  poem: false
+  in_progress_fortune: false
+  review_status: true
+  review_progress: true
+  commit_status: true
+  abort_on_close: true
+
+  slop_detection:
+    enabled: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+    ignore_usernames:
+      - "dependabot[bot]"
+    base_branches:
+      - "main"
+
+  path_filters:
+    - "!uv.lock"
+    - "!data/**"
+    - "!runs/**"
+    - "!assets/**"
+
+  path_instructions:
+    - path: "src/skillfront/grid.py"
+      instructions: |
+        - Verify spherical geometry math: area weights via sin(north) - sin(south),
+          polar cap clamping to [-90, 90], longitude wrapping across the 0/360 seam,
+          and conservation of the global area-weighted mean under conservative averaging.
+        - Check floating-point tolerance boundaries, negative-zero handling, and validation
+          of invalid grid steps or origins.
+    - path: "src/skillfront/benchmark.py"
+      instructions: |
+        - Guard verification integrity and prevent benchmark leakage: validate coordinates
+          (init_time, lead_time, latitude, longitude, and optional valid_time), dimension
+          sets, exact units attributes, and finite numeric values before scoring.
+        - Verify spherical-area-weighted MAE, RMSE, and signed bias (forecast minus truth)
+          are computed in float64 without mutating caller datasets.
+    - path: "src/skillfront/data.py"
+      instructions: |
+        - Check WeatherBench 2 ERA5 and climatology variable mappings, unit scale/offset
+          conversions, retry/timeout handling for remote Zarr reads, and finiteness checks.
+    - path: "src/skillfront/cli.py"
+      instructions: |
+        - Verify atomic output writes (temp file + os.replace + cleanup on failure),
+          input/output path collision checks, deterministic JSON output (allow_nan=False),
+          and SHA-256 provenance hashing.
+    - path: "tests/**"
+      instructions: |
+        - Keep unit tests fast, deterministic, and completely offline (no live ERA5 or
+          WeatherBench network downloads).
+        - Ensure mathematical invariants and error/rejection paths are explicitly tested.
+    - path: ".github/**"
+      instructions: |
+        - Enforce least-privilege permissions, pinned action SHAs, safe PR triggers
+          (avoid untrusted pull_request_target code execution), and concurrency cancellation.
+    - path: "**/*.md"
+      instructions: |
+        - Check that CLI commands, forecast variable names, exact unit strings, and
+          benchmark protocol descriptions match src/skillfront/.
+
+  tools:
+    ruff:
+      enabled: true
+    actionlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    yamllint:
+      enabled: true
+    github-checks:
+      enabled: true
+
+chat:
+  auto_reply: true

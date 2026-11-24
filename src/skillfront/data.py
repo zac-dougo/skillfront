@@ -13,7 +13,6 @@ from skillfront.grid import (
     normalize_native,
 )
 
-
 PROTOCOL = "global-v0"
 YEAR = 2022
 INITIALIZATION_MONTHS = (1, 4, 7, 10)
@@ -99,7 +98,7 @@ def download_data() -> xr.Dataset:
             climatology=CLIMATOLOGY_URL,
         )
 
-    invalid = [name for name in data.data_vars if not np.isfinite(data[name]).all().item()]
+    invalid = [str(name) for name in data.data_vars if not np.isfinite(data[name]).all().item()]
     if invalid:
         raise ValueError(f"The archive slice contains missing or invalid data in {', '.join(invalid)}")
     return data

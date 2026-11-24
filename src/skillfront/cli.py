@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from importlib.metadata import version
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Any
 
 import xarray as xr
 
@@ -39,10 +40,20 @@ def main() -> None:
     benchmark = commands.add_parser("benchmark", help="Run the Global v0 benchmark")
     benchmark.add_argument("--data", type=Path, default=Path(f"data/{PROTOCOL}-native.nc"))
     benchmark.add_argument("--scorecard", type=Path)
-    benchmark.add_argument("--grid-degrees", type=float, default=NATIVE_GRID_DEGREES,
-                           help="Scoring cell width and height in degrees (default: 0.25)")
-    benchmark.add_argument("--grid-origin", type=float, nargs=2, metavar=("LAT", "LON"),
-                           default=DEFAULT_GRID_ORIGIN, help="Anchor for cell centres (default: 0 0)")
+    benchmark.add_argument(
+        "--grid-degrees",
+        type=float,
+        default=NATIVE_GRID_DEGREES,
+        help="Scoring cell width and height in degrees (default: 0.25)",
+    )
+    benchmark.add_argument(
+        "--grid-origin",
+        type=float,
+        nargs=2,
+        metavar=("LAT", "LON"),
+        default=DEFAULT_GRID_ORIGIN,
+        help="Anchor for cell centres (default: 0 0)",
+    )
     benchmark.add_argument("--forecast", type=Path, help="Optional model forecast in NetCDF3 format")
     args = parser.parse_args()
 
@@ -80,7 +91,9 @@ def run_benchmark(
 
     data, data_hash = _read_snapshot(data_path)
     verification, baselines = benchmark_cases(prepare_benchmark_grid(data, grid_degrees, grid_origin))
-    models = {name: {"scores": score_forecast(model, verification)} for name, model in baselines.items()}
+    models: dict[str, dict[str, Any]] = {
+        name: {"scores": score_forecast(model, verification)} for name, model in baselines.items()
+    }
     if forecast_path is not None:
         forecast, forecast_hash = _read_snapshot(forecast_path)
         name = forecast_path.stem
@@ -102,9 +115,10 @@ def run_benchmark(
             "longitude": verification.sizes["longitude"],
         },
         "grid_cells": verification.sizes["latitude"] * verification.sizes["longitude"],
-        "data": {"sha256": data_hash, "sources": {
-            name: data.attrs[name] for name in ("era5", "climatology")
-        }},
+        "data": {
+            "sha256": data_hash,
+            "sources": {name: data.attrs[name] for name in ("era5", "climatology")},
+        },
         "models": models,
     }
     with _atomic_output(scorecard) as temporary:
